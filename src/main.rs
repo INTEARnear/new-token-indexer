@@ -1,9 +1,12 @@
 use inindexer::neardata_server::NeardataServerProvider;
 
+use contract_indexer::{
+    redis_handler::PushToRedisStream, txt_file_storage::TxtFileStorage, RPC_URL,
+};
 use inindexer::{
     run_indexer, AutoContinue, BlockIterator, IndexerOptions, PreprocessTransactionsSettings,
 };
-use potlock_indexer::redis_handler::PushToRedisStream;
+use near_jsonrpc_client::JsonRpcClient;
 use redis::aio::ConnectionManager;
 
 #[tokio::main]
@@ -21,16 +24,19 @@ async fn main() {
     .unwrap();
     let connection = ConnectionManager::new(client).await.unwrap();
 
-    let mut indexer =
-        potlock_indexer::PotlockIndexer(PushToRedisStream::new(connection, 1_000).await);
+    let mut indexer = contract_indexer::ContractIndexer::new(
+        PushToRedisStream::new(connection, 1_000).await,
+        JsonRpcClient::connect(std::env::var("RPC_URL").unwrap_or(RPC_URL.to_string())),
+        TxtFileStorage::new("known_tokens.txt").await,
+    );
 
     run_indexer(
         &mut indexer,
         NeardataServerProvider::mainnet(),
         IndexerOptions {
             range: if std::env::args().len() > 1 {
-                // For debugging
-                let msg = "Usage: `potlock-indexer` or `potlock-indexer [start-block] [end-block]`";
+                let msg =
+                    "Usage: `contract-indexer` or `contract-indexer [start-block] [end-block]`";
                 BlockIterator::iterator(
                     std::env::args()
                         .nth(1)
