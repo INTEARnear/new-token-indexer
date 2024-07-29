@@ -27,7 +27,14 @@ impl PushToRedisStream {
                     NewContractNep141Event::ID.to_string()
                 },
             ),
-            meme_cooking_stream: RedisEventStream::new(connection, NewMemeCookingMemeEvent::ID),
+            meme_cooking_stream: RedisEventStream::new(
+                connection,
+                if testnet {
+                    format!("{}_testnet", NewMemeCookingMemeEvent::ID)
+                } else {
+                    NewMemeCookingMemeEvent::ID.to_string()
+                },
+            ),
             max_stream_size,
             testnet,
         }
