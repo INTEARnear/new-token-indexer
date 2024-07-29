@@ -1,38 +1,43 @@
 use inindexer::neardata_server::NeardataServerProvider;
 
-use contract_indexer::{
-    redis_handler::PushToRedisStream, txt_file_storage::TxtFileStorage, RPC_URL,
-};
 use inindexer::{
     run_indexer, AutoContinue, BlockIterator, IndexerOptions, PreprocessTransactionsSettings,
 };
 use near_jsonrpc_client::JsonRpcClient;
+use new_token_indexer::{
+    redis_handler::PushToRedisStream, txt_file_storage::TxtFileStorage, NewTokenIndexer, RPC_URL,
+};
 use redis::aio::ConnectionManager;
 
 #[tokio::main]
 async fn main() {
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
     simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Info)
         .with_module_level("inindexer::performance", log::LevelFilter::Debug)
         .init()
         .unwrap();
 
+    let is_testnet = std::env::var("TESTNET").is_ok();
     let client = redis::Client::open(
         std::env::var("REDIS_URL").expect("No $REDIS_URL environment variable set"),
     )
     .unwrap();
     let connection = ConnectionManager::new(client).await.unwrap();
 
-    let mut indexer = contract_indexer::ContractIndexer::new(
-        PushToRedisStream::new(connection, 1_000).await,
+    let mut indexer = NewTokenIndexer::new(
+        PushToRedisStream::new(connection, 1_000, is_testnet).await,
         JsonRpcClient::connect(std::env::var("RPC_URL").unwrap_or(RPC_URL.to_string())),
         TxtFileStorage::new("known_tokens.txt").await,
     );
 
     run_indexer(
         &mut indexer,
-        NeardataServerProvider::mainnet(),
+        if is_testnet {
+            NeardataServerProvider::testnet()
+        } else {
+            NeardataServerProvider::mainnet()
+        },
         IndexerOptions {
             range: if std::env::args().len() > 1 {
                 let msg =
