@@ -1,9 +1,11 @@
-#[cfg(test)]
-mod ft_tests;
 pub mod meme_cooking;
 pub mod new_nep141;
 pub mod redis_handler;
+#[cfg(test)]
+mod tests;
 pub mod txt_file_storage;
+
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use inindexer::near_indexer_primitives::types::AccountId;
@@ -20,13 +22,11 @@ use near_jsonrpc_client::JsonRpcClient;
 use new_nep141::HandledTokensStorage;
 use new_nep141::Nep141Indexer;
 
-pub const RPC_URL: &str = "https://free.rpc.fastnear.com";
-
 #[async_trait]
 pub trait ContractEventHandler: Send + Sync {
-    async fn handle_new_nep141(&mut self, account_id: AccountId, context: EventContext);
+    async fn handle_new_nep141(&self, account_id: AccountId, context: EventContext);
     async fn handle_meme_cooking_new_meme(
-        &mut self,
+        &self,
         event: MemeCookingCreateMemeEvent,
         context: EventContext,
     );
@@ -34,7 +34,7 @@ pub trait ContractEventHandler: Send + Sync {
 }
 
 pub struct NewTokenIndexer<T: ContractEventHandler> {
-    pub handler: T,
+    pub handler: Arc<T>,
     pub nep141_indexer: Nep141Indexer,
     pub meme_cooking_indexer: MemeCookingIndexer,
 }
@@ -46,7 +46,7 @@ impl<T: ContractEventHandler> NewTokenIndexer<T> {
         handled_accounts: impl HandledTokensStorage + 'static,
     ) -> Self {
         Self {
-            handler,
+            handler: Arc::new(handler),
             nep141_indexer: Nep141Indexer::new(rpc_client, handled_accounts),
             meme_cooking_indexer: MemeCookingIndexer,
         }
@@ -71,11 +71,11 @@ impl<T: ContractEventHandler + 'static> Indexer for NewTokenIndexer<T> {
         }
 
         self.nep141_indexer
-            .detect_nep141(receipt, tx, block, &mut self.handler)
+            .detect_nep141(receipt, tx, block, Arc::clone(&self.handler))
             .await;
 
         self.meme_cooking_indexer
-            .detect_meme_cooking(receipt, tx, block, &mut self.handler)
+            .detect_meme_cooking(receipt, tx, block, Arc::clone(&self.handler))
             .await;
 
         Ok(())

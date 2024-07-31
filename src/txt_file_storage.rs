@@ -38,7 +38,7 @@ impl HandledTokensStorage for TxtFileStorage {
         self.handled_accounts.read().await.contains(account_id)
     }
 
-    async fn mark_handled(&mut self, account_id: AccountId) {
+    async fn mark_handled(&self, account_id: AccountId) {
         self.handled_accounts
             .write()
             .await

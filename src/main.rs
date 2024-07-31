@@ -5,9 +5,11 @@ use inindexer::{
 };
 use near_jsonrpc_client::JsonRpcClient;
 use new_token_indexer::{
-    redis_handler::PushToRedisStream, txt_file_storage::TxtFileStorage, NewTokenIndexer, RPC_URL,
+    redis_handler::PushToRedisStream, txt_file_storage::TxtFileStorage, NewTokenIndexer,
 };
 use redis::aio::ConnectionManager;
+
+pub const RPC_URL: &str = "https://archival-rpc.mainnet.near.org";
 
 #[tokio::main]
 async fn main() {

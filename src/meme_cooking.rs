@@ -1,6 +1,8 @@
 const MEME_COOKING_CONTRACT_TESTNET: &str = "factory.v7.meme-cooking.testnet";
 const MEME_COOKING_CONTRACT: &str = "todo";
 
+use std::sync::Arc;
+
 use inindexer::{
     near_indexer_primitives::{
         types::{AccountId, Balance},
@@ -16,12 +18,12 @@ use crate::{ContractEventHandler, EventContext};
 pub struct MemeCookingIndexer;
 
 impl MemeCookingIndexer {
-    pub async fn detect_meme_cooking(
+    pub async fn detect_meme_cooking<T: ContractEventHandler>(
         &mut self,
         receipt: &TransactionReceipt,
         tx: &IncompleteTransaction,
         block: &StreamerMessage,
-        handler: &mut dyn ContractEventHandler,
+        handler: Arc<T>,
     ) {
         let meme_cooking_contract = if handler.is_testnet() {
             MEME_COOKING_CONTRACT_TESTNET

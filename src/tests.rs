@@ -6,35 +6,41 @@ use inindexer::{
     run_indexer, BlockIterator, IndexerOptions, PreprocessTransactionsSettings,
 };
 use near_jsonrpc_client::JsonRpcClient;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
+
+pub const RPC_URL: &str = "https://archival-rpc.mainnet.near.org";
 
 use crate::{
     meme_cooking::MemeCookingCreateMemeEvent, ContractEventHandler, EventContext,
-    HandledTokensStorage, NewTokenIndexer, RPC_URL,
+    HandledTokensStorage, NewTokenIndexer,
 };
 
 #[derive(Default)]
 struct TestHandler {
-    nep141_events: HashMap<AccountId, Vec<EventContext>>,
-    memecooking_events: HashMap<u64, Vec<(MemeCookingCreateMemeEvent, EventContext)>>,
+    nep141_events: Mutex<HashMap<AccountId, Vec<EventContext>>>,
+    memecooking_events: Mutex<HashMap<u64, Vec<(MemeCookingCreateMemeEvent, EventContext)>>>,
     testnet: bool,
 }
 
 #[async_trait]
 impl ContractEventHandler for TestHandler {
-    async fn handle_new_nep141(&mut self, account_id: AccountId, context: EventContext) {
+    async fn handle_new_nep141(&self, account_id: AccountId, context: EventContext) {
         self.nep141_events
+            .lock()
+            .await
             .entry(account_id)
             .or_default()
             .push(context);
     }
 
     async fn handle_meme_cooking_new_meme(
-        &mut self,
+        &self,
         event: MemeCookingCreateMemeEvent,
         context: EventContext,
     ) {
         self.memecooking_events
+            .lock()
+            .await
             .entry(event.meme_id)
             .or_default()
             .push((event, context));
@@ -56,7 +62,7 @@ impl HandledTokensStorage for TestStorage {
         self.handled_accounts.read().await.contains(account_id)
     }
 
-    async fn mark_handled(&mut self, account_id: AccountId) {
+    async fn mark_handled(&self, account_id: AccountId) {
         self.handled_accounts.write().await.insert(account_id);
     }
 }
@@ -90,6 +96,8 @@ async fn detects_tkn_factory() {
         *indexer
             .handler
             .nep141_events
+            .lock()
+            .await
             .get(&"intel.tkn.near".parse::<AccountId>().unwrap())
             .unwrap(),
         vec![
@@ -121,7 +129,7 @@ async fn detects_custom_token_contracts() {
         &mut indexer,
         NeardataServerProvider::mainnet(),
         IndexerOptions {
-            range: BlockIterator::iterator(117_103_395..=117_103_395),
+            range: BlockIterator::iterator(124_593_976..=124_593_979),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
                 prefetch_blocks: 0,
                 postfetch_blocks: 0,
@@ -136,18 +144,20 @@ async fn detects_custom_token_contracts() {
         *indexer
             .handler
             .nep141_events
-            .get(&"token.axisorder.near".parse::<AccountId>().unwrap())
+            .lock()
+            .await
+            .get(&"angry.tfactory.near".parse::<AccountId>().unwrap())
             .unwrap(),
         vec![
             (EventContext {
-                transaction_id: "AZRtBbBR56JvVsXz1LKVtujZMBgL1Wks1qgHbxvB5k9k"
+                transaction_id: "AakvpHzUZkeHtXZuWV9La6Y3FTwPmDrjqUjyJfTWVyHD"
                     .parse()
                     .unwrap(),
-                receipt_id: "HYtRzbAoj3Roupo5hLCTsVZUvL985uvgN4tkxFLCp4k3"
+                receipt_id: "EGv4bscgetNtNEi25eRHG5fFykAa4ZCS8AMVZK8iNz4K"
                     .parse()
                     .unwrap(),
-                block_height: 117103395,
-                block_timestamp_nanosec: 1713441692153402000,
+                block_height: 124593978,
+                block_timestamp_nanosec: 1722328121254503873,
             })
         ]
     );
@@ -178,7 +188,9 @@ async fn does_not_detect_non_ft_contrats() {
     .await
     .unwrap();
 
-    assert!(indexer.handler.nep141_events.is_empty());
+    let mut events = indexer.handler.nep141_events.lock().await;
+    events.retain(|token, _| token != "game.hot.tg" && token != "token.sweat");
+    assert!(events.is_empty());
 }
 
 #[tokio::test]
@@ -210,7 +222,13 @@ async fn detects_meme_cooking() {
     .unwrap();
 
     assert_eq!(
-        *indexer.handler.memecooking_events.get(&51).unwrap(),
+        *indexer
+            .handler
+            .memecooking_events
+            .lock()
+            .await
+            .get(&51)
+            .unwrap(),
         vec![(
             MemeCookingCreateMemeEvent {
                 meme_id: 51,
@@ -235,5 +253,103 @@ async fn detects_meme_cooking() {
                 block_timestamp_nanosec: 1722185467939074943
             }
         )]
+    );
+}
+
+#[tokio::test]
+async fn detects_mitte_meme() {
+    let handler = TestHandler {
+        testnet: true,
+        ..Default::default()
+    };
+
+    let mut indexer = NewTokenIndexer::new(
+        handler,
+        JsonRpcClient::connect(RPC_URL),
+        TestStorage::default(),
+    );
+
+    run_indexer(
+        &mut indexer,
+        NeardataServerProvider::mainnet(),
+        IndexerOptions {
+            range: BlockIterator::iterator(124_682_797..=124_682_800),
+            preprocess_transactions: Some(PreprocessTransactionsSettings {
+                prefetch_blocks: 0,
+                postfetch_blocks: 0,
+            }),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        *indexer
+            .handler
+            .nep141_events
+            .lock()
+            .await
+            .get(&"catrump.token0.near".parse::<AccountId>().unwrap())
+            .unwrap(),
+        vec![EventContext {
+            transaction_id: "HE8m7RMcFADqV1HJ9PVa3xdtzYHYzSQMBFA2JwAzt7ZZ"
+                .parse()
+                .unwrap(),
+            receipt_id: "96P7qPrKjhpsSS1tKctojRTUmPyTWEdr2nMmR8wULybW"
+                .parse()
+                .unwrap(),
+            block_height: 124682799,
+            block_timestamp_nanosec: 1722427998479776694
+        }]
+    );
+}
+
+#[tokio::test]
+async fn detects_by_events() {
+    let handler = TestHandler {
+        testnet: true,
+        ..Default::default()
+    };
+
+    let mut indexer = NewTokenIndexer::new(
+        handler,
+        JsonRpcClient::connect(RPC_URL),
+        TestStorage::default(),
+    );
+
+    run_indexer(
+        &mut indexer,
+        NeardataServerProvider::mainnet(),
+        IndexerOptions {
+            range: BlockIterator::iterator(124_689_355..=124_689_357),
+            preprocess_transactions: Some(PreprocessTransactionsSettings {
+                prefetch_blocks: 0,
+                postfetch_blocks: 0,
+            }),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        *indexer
+            .handler
+            .nep141_events
+            .lock()
+            .await
+            .get(&"token.honeybot.near".parse::<AccountId>().unwrap())
+            .unwrap(),
+        vec![EventContext {
+            transaction_id: "HJm31U2yLZ1WGPwokvkRWNZCp4yik6rMqREKJti625sq"
+                .parse()
+                .unwrap(),
+            receipt_id: "GCzZi4thGK4XbiiALkDhquz3rqfnnJ81K2KNrFyUnAnP"
+                .parse()
+                .unwrap(),
+            block_height: 124689356,
+            block_timestamp_nanosec: 1722435140007941002
+        }]
     );
 }

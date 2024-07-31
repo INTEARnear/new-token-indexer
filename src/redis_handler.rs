@@ -43,7 +43,7 @@ impl PushToRedisStream {
 
 #[async_trait]
 impl ContractEventHandler for PushToRedisStream {
-    async fn handle_new_nep141(&mut self, account_id: AccountId, context: EventContext) {
+    async fn handle_new_nep141(&self, account_id: AccountId, context: EventContext) {
         self.nep141_stream
             .emit_event(
                 context.block_height,
@@ -61,7 +61,7 @@ impl ContractEventHandler for PushToRedisStream {
     }
 
     async fn handle_meme_cooking_new_meme(
-        &mut self,
+        &self,
         event: MemeCookingCreateMemeEvent,
         context: EventContext,
     ) {
