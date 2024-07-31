@@ -110,6 +110,9 @@ impl Nep141Indexer {
                     )
                     .await
                 {
+                    self.storage
+                        .mark_handled(receipt.receipt.receipt.receiver_id.clone())
+                        .await;
                     let context = EventContext {
                         transaction_id: tx.transaction.transaction.hash,
                         receipt_id: receipt.receipt.receipt.receipt_id,
