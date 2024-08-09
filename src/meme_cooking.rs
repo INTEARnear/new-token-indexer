@@ -1,4 +1,4 @@
-const MEME_COOKING_CONTRACT_TESTNET: &str = "factory.v7.meme-cooking.testnet";
+const MEME_COOKING_CONTRACT_TESTNET: &str = "factory.v9.meme-cooking.testnet";
 const MEME_COOKING_CONTRACT: &str = "todo";
 
 use std::sync::Arc;
