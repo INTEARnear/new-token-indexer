@@ -210,7 +210,7 @@ async fn detects_meme_cooking() {
         &mut indexer,
         NeardataServerProvider::testnet(),
         IndexerOptions {
-            range: BlockIterator::iterator(170_108_186..=170_108_188),
+            range: BlockIterator::iterator(171_103_227..=171_103_229),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
                 prefetch_blocks: 0,
                 postfetch_blocks: 0,
@@ -227,30 +227,30 @@ async fn detects_meme_cooking() {
             .memecooking_events
             .lock()
             .await
-            .get(&51)
+            .get(&18)
             .unwrap(),
         vec![(
             MemeCookingCreateMemeEvent {
-                meme_id: 51,
-                owner: "hardflour4957.testnet".parse().unwrap(),
-                end_timestamp_ms: 1722185767939,
-                name: "faew".to_string(),
-                symbol: "gwefw".to_string(),
-                decimals: 24,
-                total_supply: 1000000000000000000000000000000000,
-                reference: "Qmcq2f32ECkN8FSVVSYVEcVmxVRHXUL4JFLUccBhaWcGWJ".to_string(),
+                meme_id: 18,
+                owner: "branermus.testnet".parse().unwrap(),
+                end_timestamp_ms: 1723301238625,
+                name: "BRAN".to_string(),
+                symbol: "BranShitzu".to_string(),
+                decimals: 18,
+                total_supply: 1000000000000000000000000000,
+                reference: "QmVvdbCTVouAdBJZe2ZSPFmzMCheY7aXWu8utM7tRCambG".to_string(),
                 reference_hash: "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=".to_string(),
                 deposit_token_id: "wrap.testnet".parse().unwrap()
             },
             EventContext {
-                transaction_id: "DJnFGNg7TXD7nGVWy1GtwpJHRzDLJWHEpXnS6aTREzUW"
+                transaction_id: "5rLBCBscRUGG2QdLXBbdF6mNqhWouQ3te69xE6B9FFE1"
                     .parse()
                     .unwrap(),
-                receipt_id: "HQfrrEu2j2RJbtwN9phumUhtnWYE1UFPZJvC8BvQVDKq"
+                receipt_id: "DahjYDb2rBjEypomHuA73iAwFJfdEFVC1bodcMs3oczp"
                     .parse()
                     .unwrap(),
-                block_height: 170108187,
-                block_timestamp_nanosec: 1722185467939074943
+                block_height: 171103228,
+                block_timestamp_nanosec: 1723214838625602187,
             }
         )]
     );
