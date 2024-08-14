@@ -73,6 +73,7 @@ impl ContractEventHandler for PushToRedisStream {
                 },
                 self.max_stream_size,
             )
+            .await
             .expect("Failed to emit nep141 creation event");
     }
 
@@ -104,6 +105,7 @@ impl ContractEventHandler for PushToRedisStream {
                 },
                 self.max_stream_size,
             )
+            .await
             .expect("Failed to emit meme cooking event");
     }
 
