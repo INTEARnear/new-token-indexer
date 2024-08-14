@@ -1,3 +1,8 @@
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
+
 use async_trait::async_trait;
 use inevents_redis::RedisEventStream;
 use inindexer::near_indexer_primitives::types::AccountId;
@@ -14,6 +19,9 @@ pub struct PushToRedisStream {
     meme_cooking_stream: RedisEventStream<NewMemeCookingMemeEventData>,
     max_stream_size: usize,
     testnet: bool,
+    // We sometimes give RPC 5 seconds to catch up, but if another token is created in the meantime, we don't
+    // want to have "The ID specified in XADD is equal or smaller than the target stream top item" error
+    latest_nep141_block: Arc<AtomicU64>,
 }
 
 impl PushToRedisStream {
@@ -37,6 +45,7 @@ impl PushToRedisStream {
             ),
             max_stream_size,
             testnet,
+            latest_nep141_block: Arc::new(AtomicU64::new(0)),
         }
     }
 }
@@ -44,9 +53,16 @@ impl PushToRedisStream {
 #[async_trait]
 impl ContractEventHandler for PushToRedisStream {
     async fn handle_new_nep141(&self, account_id: AccountId, context: EventContext) {
+        let latest_handled = self.latest_nep141_block.load(Ordering::Relaxed);
         self.nep141_stream
             .emit_event(
-                context.block_height,
+                if context.block_height >= latest_handled {
+                    self.latest_nep141_block
+                        .store(context.block_height, Ordering::Relaxed);
+                    context.block_height
+                } else {
+                    latest_handled
+                },
                 NewContractNep141EventData {
                     account_id,
 
