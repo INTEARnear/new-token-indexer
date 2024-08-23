@@ -95,6 +95,12 @@ impl Nep141Indexer {
             if EventLogData::<FtTransferLog>::deserialize(log).is_ok()
                 || EventLogData::<FtBurnLog>::deserialize(log).is_ok()
                 || EventLogData::<FtMintLog>::deserialize(log).is_ok()
+                || receipt
+                    .receipt
+                    .receipt
+                    .receiver_id
+                    .as_str()
+                    .ends_with(".tkn.near")
             {
                 self.last_checked_event
                     .insert(receipt.receipt.receipt.receiver_id.clone(), Instant::now());
