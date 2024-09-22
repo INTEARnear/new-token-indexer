@@ -10,6 +10,7 @@ use tokio::sync::{Mutex, RwLock};
 
 pub const RPC_URL: &str = "https://archival-rpc.mainnet.near.org";
 
+use crate::meme_cooking::MemeCookingCreateTokenEvent;
 use crate::{
     meme_cooking::MemeCookingCreateMemeEvent, ContractEventHandler, EventContext,
     HandledTokensStorage, NewTokenIndexer,
@@ -18,7 +19,8 @@ use crate::{
 #[derive(Default)]
 struct TestHandler {
     nep141_events: Mutex<HashMap<AccountId, Vec<EventContext>>>,
-    memecooking_events: Mutex<HashMap<u64, Vec<(MemeCookingCreateMemeEvent, EventContext)>>>,
+    memecooking_meme_events: Mutex<HashMap<u64, Vec<(MemeCookingCreateMemeEvent, EventContext)>>>,
+    memecooking_token_events: Mutex<HashMap<u64, Vec<(MemeCookingCreateTokenEvent, EventContext)>>>,
     testnet: bool,
 }
 
@@ -38,7 +40,20 @@ impl ContractEventHandler for TestHandler {
         event: MemeCookingCreateMemeEvent,
         context: EventContext,
     ) {
-        self.memecooking_events
+        self.memecooking_meme_events
+            .lock()
+            .await
+            .entry(event.meme_id)
+            .or_default()
+            .push((event, context));
+    }
+
+    async fn handle_meme_cooking_new_token(
+        &self,
+        event: MemeCookingCreateTokenEvent,
+        context: EventContext,
+    ) {
+        self.memecooking_token_events
             .lock()
             .await
             .entry(event.meme_id)
@@ -194,7 +209,7 @@ async fn does_not_detect_non_ft_contrats() {
 }
 
 #[tokio::test]
-async fn detects_meme_cooking() {
+async fn detects_meme_cooking_meme_creation() {
     let handler = TestHandler {
         testnet: true,
         ..Default::default()
@@ -210,7 +225,7 @@ async fn detects_meme_cooking() {
         &mut indexer,
         NeardataServerProvider::testnet(),
         IndexerOptions {
-            range: BlockIterator::iterator(171_103_227..=171_103_229),
+            range: BlockIterator::iterator(174_938_518..=174_938_522),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
                 prefetch_blocks: 0,
                 postfetch_blocks: 0,
@@ -224,33 +239,33 @@ async fn detects_meme_cooking() {
     assert_eq!(
         *indexer
             .handler
-            .memecooking_events
+            .memecooking_meme_events
             .lock()
             .await
-            .get(&18)
+            .get(&53)
             .unwrap(),
         vec![(
             MemeCookingCreateMemeEvent {
-                meme_id: 18,
-                owner: "branermus.testnet".parse().unwrap(),
-                end_timestamp_ms: 1723301238625,
-                name: "BRAN".to_string(),
-                symbol: "BranShitzu".to_string(),
+                meme_id: 53,
+                owner: "slime.testnet".parse().unwrap(),
+                end_timestamp_ms: 1727031106389,
+                name: "GM".to_string(),
+                symbol: "gm".to_string(),
                 decimals: 18,
                 total_supply: 1000000000000000000000000000,
-                reference: "QmVvdbCTVouAdBJZe2ZSPFmzMCheY7aXWu8utM7tRCambG".to_string(),
+                reference: "QmXgUkMWRkd8BUYwgY7mstUW33NMnP7mr6dbchMrpMvLu3".to_string(),
                 reference_hash: "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=".to_string(),
                 deposit_token_id: "wrap.testnet".parse().unwrap()
             },
             EventContext {
-                transaction_id: "5rLBCBscRUGG2QdLXBbdF6mNqhWouQ3te69xE6B9FFE1"
+                transaction_id: "5PtGJBAHiJHssZRhUhmZAP8zFmhRCxT9GZwL6ujB4Nqq"
                     .parse()
                     .unwrap(),
-                receipt_id: "DahjYDb2rBjEypomHuA73iAwFJfdEFVC1bodcMs3oczp"
+                receipt_id: "77JX8KKhNWnSUr6NkRPAacjHzk2GRfcQXo6zXLUT3dK3"
                     .parse()
                     .unwrap(),
-                block_height: 171103228,
-                block_timestamp_nanosec: 1723214838625602187,
+                block_height: 174938520,
+                block_timestamp_nanosec: 1727027506389585576,
             }
         )]
     );
@@ -351,5 +366,62 @@ async fn detects_by_events() {
             block_height: 124689356,
             block_timestamp_nanosec: 1722435140007941002
         }]
+    );
+}
+
+#[tokio::test]
+async fn detects_meme_cooking_token() {
+    let handler = TestHandler {
+        testnet: true,
+        ..Default::default()
+    };
+
+    let mut indexer = NewTokenIndexer::new(
+        handler,
+        JsonRpcClient::connect(RPC_URL),
+        TestStorage::default(),
+    );
+
+    run_indexer(
+        &mut indexer,
+        NeardataServerProvider::testnet(),
+        IndexerOptions {
+            range: BlockIterator::iterator(174_820_322..=174_820_337),
+            preprocess_transactions: Some(PreprocessTransactionsSettings {
+                prefetch_blocks: 0,
+                postfetch_blocks: 0,
+            }),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        *indexer
+            .handler
+            .memecooking_token_events
+            .lock()
+            .await
+            .get(&52)
+            .unwrap(),
+        vec![(
+            MemeCookingCreateTokenEvent {
+                meme_id: 52,
+                token_id: "lee-52.factory.v10.meme-cooking.testnet".parse().unwrap(),
+                total_supply: 1000000000000000000000000000,
+                pool_id: 2273
+            },
+            EventContext {
+                transaction_id: "59rYXL82wYisbMf5xMm37mKJ1eeWyJTBQ3hMPjKn2huG"
+                    .parse()
+                    .unwrap(),
+                receipt_id: "51ScmrfA9r6J2hkCM5t9GyY9XeZW8gewqBXSju86NNYR"
+                    .parse()
+                    .unwrap(),
+                block_height: 174820333,
+                block_timestamp_nanosec: 1726907853133808278
+            }
+        )]
     );
 }

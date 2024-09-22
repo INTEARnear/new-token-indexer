@@ -6,17 +6,22 @@ use std::sync::{
 use async_trait::async_trait;
 use inevents_redis::RedisEventStream;
 use inindexer::near_indexer_primitives::types::AccountId;
+use intear_events::events::newcontract::meme_cooking_token::{
+    NewMemeCookingTokenEvent, NewMemeCookingTokenEventData,
+};
 use intear_events::events::newcontract::{
-    meme_cooking::{NewMemeCookingMemeEvent, NewMemeCookingMemeEventData},
+    meme_cooking_meme::{NewMemeCookingMemeEvent, NewMemeCookingMemeEventData},
     nep141::{NewContractNep141Event, NewContractNep141EventData},
 };
 use redis::aio::ConnectionManager;
 
+use crate::meme_cooking::MemeCookingCreateTokenEvent;
 use crate::{meme_cooking::MemeCookingCreateMemeEvent, ContractEventHandler, EventContext};
 
 pub struct PushToRedisStream {
     nep141_stream: RedisEventStream<NewContractNep141EventData>,
-    meme_cooking_stream: RedisEventStream<NewMemeCookingMemeEventData>,
+    meme_cooking_meme_stream: RedisEventStream<NewMemeCookingMemeEventData>,
+    meme_cooking_token_stream: RedisEventStream<NewMemeCookingTokenEventData>,
     max_stream_size: usize,
     testnet: bool,
     // We sometimes give RPC 5 seconds to catch up, but if another token is created in the meantime, we don't
@@ -35,12 +40,20 @@ impl PushToRedisStream {
                     NewContractNep141Event::ID.to_string()
                 },
             ),
-            meme_cooking_stream: RedisEventStream::new(
-                connection,
+            meme_cooking_meme_stream: RedisEventStream::new(
+                connection.clone(),
                 if testnet {
                     format!("{}_testnet", NewMemeCookingMemeEvent::ID)
                 } else {
                     NewMemeCookingMemeEvent::ID.to_string()
+                },
+            ),
+            meme_cooking_token_stream: RedisEventStream::new(
+                connection.clone(),
+                if testnet {
+                    format!("{}_testnet", NewMemeCookingTokenEvent::ID)
+                } else {
+                    NewMemeCookingTokenEvent::ID.to_string()
                 },
             ),
             max_stream_size,
@@ -82,8 +95,7 @@ impl ContractEventHandler for PushToRedisStream {
         event: MemeCookingCreateMemeEvent,
         context: EventContext,
     ) {
-        log::warn!("Meme cooking event handling is not implemented");
-        self.meme_cooking_stream
+        self.meme_cooking_meme_stream
             .emit_event(
                 context.block_height,
                 NewMemeCookingMemeEventData {
@@ -102,6 +114,31 @@ impl ContractEventHandler for PushToRedisStream {
                     reference: event.reference,
                     reference_hash: event.reference_hash,
                     deposit_token_id: event.deposit_token_id,
+                },
+                self.max_stream_size,
+            )
+            .await
+            .expect("Failed to emit meme cooking event");
+    }
+
+    async fn handle_meme_cooking_new_token(
+        &self,
+        event: MemeCookingCreateTokenEvent,
+        context: EventContext,
+    ) {
+        self.meme_cooking_token_stream
+            .emit_event(
+                context.block_height,
+                NewMemeCookingTokenEventData {
+                    transaction_id: context.transaction_id,
+                    receipt_id: context.receipt_id,
+                    block_height: context.block_height,
+                    block_timestamp_nanosec: context.block_timestamp_nanosec,
+
+                    meme_id: event.meme_id,
+                    token_id: event.token_id,
+                    total_supply: event.total_supply,
+                    pool_id: event.pool_id,
                 },
                 self.max_stream_size,
             )

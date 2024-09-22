@@ -22,12 +22,19 @@ use near_jsonrpc_client::JsonRpcClient;
 use new_nep141::HandledTokensStorage;
 use new_nep141::Nep141Indexer;
 
+use crate::meme_cooking::MemeCookingCreateTokenEvent;
+
 #[async_trait]
 pub trait ContractEventHandler: Send + Sync {
     async fn handle_new_nep141(&self, account_id: AccountId, context: EventContext);
     async fn handle_meme_cooking_new_meme(
         &self,
         event: MemeCookingCreateMemeEvent,
+        context: EventContext,
+    );
+    async fn handle_meme_cooking_new_token(
+        &self,
+        event: MemeCookingCreateTokenEvent,
         context: EventContext,
     );
     fn is_testnet(&self) -> bool;
