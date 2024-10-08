@@ -225,7 +225,7 @@ async fn detects_meme_cooking_meme_creation() {
         &mut indexer,
         NeardataServerProvider::testnet(),
         IndexerOptions {
-            range: BlockIterator::iterator(174_938_518..=174_938_522),
+            range: BlockIterator::iterator(176_213_383..=176_213_387),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
                 prefetch_blocks: 0,
                 postfetch_blocks: 0,
@@ -242,30 +242,32 @@ async fn detects_meme_cooking_meme_creation() {
             .memecooking_meme_events
             .lock()
             .await
-            .get(&53)
+            .get(&90)
             .unwrap(),
         vec![(
             MemeCookingCreateMemeEvent {
-                meme_id: 53,
-                owner: "slime.testnet".parse().unwrap(),
-                end_timestamp_ms: 1727031106389,
-                name: "GM".to_string(),
-                symbol: "gm".to_string(),
+                meme_id: 90,
+                owner: "marior.testnet".parse().unwrap(),
+                end_timestamp_ms: 1728386932500,
+                name: "test".to_string(),
+                symbol: "test".to_string(),
                 decimals: 18,
                 total_supply: 1000000000000000000000000000,
-                reference: "QmXgUkMWRkd8BUYwgY7mstUW33NMnP7mr6dbchMrpMvLu3".to_string(),
+                reference: "QmS33zcxEgb4QSfwA7tH9w7NVmiVaw6ZqkJFA5CiqVmm4W".to_string(),
                 reference_hash: "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=".to_string(),
-                deposit_token_id: "wrap.testnet".parse().unwrap()
+                deposit_token_id: "wrap.testnet".parse().unwrap(),
+                soft_cap: 100000000000000000000000000,
+                hard_cap: 1000000000000000000000000000,
             },
             EventContext {
-                transaction_id: "5PtGJBAHiJHssZRhUhmZAP8zFmhRCxT9GZwL6ujB4Nqq"
+                transaction_id: "9GecMwZehFzuJawDHaapEn2zfvz4nZ4yPKUrvPisga5b"
                     .parse()
                     .unwrap(),
-                receipt_id: "77JX8KKhNWnSUr6NkRPAacjHzk2GRfcQXo6zXLUT3dK3"
+                receipt_id: "DuwgFT32JMrTYZuFV6KeEe9orZcMMFYq1Wov3fJHh9cP"
                     .parse()
                     .unwrap(),
-                block_height: 174938520,
-                block_timestamp_nanosec: 1727027506389585576,
+                block_height: 176213385,
+                block_timestamp_nanosec: 1728300532500808265,
             }
         )]
     );

@@ -77,6 +77,14 @@ pub struct MemeCookingCreateMemeEvent {
     pub reference: String,
     pub reference_hash: String,
     pub deposit_token_id: AccountId,
+    #[serde(with = "dec_format", default = "default_cap")]
+    pub soft_cap: Balance,
+    #[serde(with = "dec_format", default = "default_cap")]
+    pub hard_cap: Balance,
+}
+
+fn default_cap() -> Balance {
+    4000 * 10u128.pow(24)
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

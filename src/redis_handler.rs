@@ -114,6 +114,8 @@ impl ContractEventHandler for PushToRedisStream {
                     reference: event.reference,
                     reference_hash: event.reference_hash,
                     deposit_token_id: event.deposit_token_id,
+                    soft_cap: event.soft_cap,
+                    hard_cap: event.hard_cap,
                 },
                 self.max_stream_size,
             )
