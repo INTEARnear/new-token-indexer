@@ -257,7 +257,7 @@ async fn detects_meme_cooking_meme_creation() {
                 reference_hash: "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=".to_string(),
                 deposit_token_id: "wrap.testnet".parse().unwrap(),
                 soft_cap: 100000000000000000000000000,
-                hard_cap: 1000000000000000000000000000,
+                hard_cap: Some(1000000000000000000000000000),
             },
             EventContext {
                 transaction_id: "9GecMwZehFzuJawDHaapEn2zfvz4nZ4yPKUrvPisga5b"
