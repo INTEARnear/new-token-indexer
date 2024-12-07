@@ -1,4 +1,5 @@
-use crate::HandledTokensStorage;
+use crate::new_nep171::HandledNep171TokensStorage;
+use crate::HandledNep141TokensStorage;
 
 use async_trait::async_trait;
 use inindexer::near_indexer_primitives::types::AccountId;
@@ -33,7 +34,32 @@ impl TxtFileStorage {
 }
 
 #[async_trait]
-impl HandledTokensStorage for TxtFileStorage {
+impl HandledNep141TokensStorage for TxtFileStorage {
+    async fn is_already_indexed(&self, account_id: &AccountId) -> bool {
+        self.handled_accounts.read().await.contains(account_id)
+    }
+
+    async fn mark_handled(&self, account_id: AccountId) {
+        self.handled_accounts
+            .write()
+            .await
+            .insert(account_id.clone());
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(true)
+            .open(&self.path)
+            .await
+            .unwrap();
+        file.write_all((account_id.to_string() + "\n").as_bytes())
+            .await
+            .unwrap();
+        file.flush().await.unwrap();
+    }
+}
+
+#[async_trait]
+impl HandledNep171TokensStorage for TxtFileStorage {
     async fn is_already_indexed(&self, account_id: &AccountId) -> bool {
         self.handled_accounts.read().await.contains(account_id)
     }

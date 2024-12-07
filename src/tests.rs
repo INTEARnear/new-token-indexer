@@ -11,15 +11,16 @@ use tokio::sync::{Mutex, RwLock};
 
 pub const RPC_URL: &str = "https://archival-rpc.mainnet.near.org";
 
-use crate::meme_cooking::MemeCookingCreateTokenEvent;
 use crate::{
     meme_cooking::MemeCookingCreateMemeEvent, ContractEventHandler, EventContext,
-    HandledTokensStorage, NewTokenIndexer,
+    HandledNep141TokensStorage, NewTokenIndexer,
 };
+use crate::{meme_cooking::MemeCookingCreateTokenEvent, new_nep171::HandledNep171TokensStorage};
 
 #[derive(Default)]
 struct TestHandler {
     nep141_events: Mutex<HashMap<AccountId, Vec<EventContext>>>,
+    nep171_events: Mutex<HashMap<AccountId, Vec<EventContext>>>,
     memecooking_meme_events: Mutex<HashMap<u64, Vec<(MemeCookingCreateMemeEvent, EventContext)>>>,
     memecooking_token_events: Mutex<HashMap<u64, Vec<(MemeCookingCreateTokenEvent, EventContext)>>>,
     testnet: bool,
@@ -29,6 +30,15 @@ struct TestHandler {
 impl ContractEventHandler for TestHandler {
     async fn handle_new_nep141(&self, account_id: AccountId, context: EventContext) {
         self.nep141_events
+            .lock()
+            .await
+            .entry(account_id)
+            .or_default()
+            .push(context);
+    }
+
+    async fn handle_new_nep171(&self, account_id: AccountId, context: EventContext) {
+        self.nep171_events
             .lock()
             .await
             .entry(account_id)
@@ -75,7 +85,18 @@ struct TestStorage {
 }
 
 #[async_trait]
-impl HandledTokensStorage for TestStorage {
+impl HandledNep141TokensStorage for TestStorage {
+    async fn is_already_indexed(&self, account_id: &AccountId) -> bool {
+        self.handled_accounts.read().await.contains(account_id)
+    }
+
+    async fn mark_handled(&self, account_id: AccountId) {
+        self.handled_accounts.write().await.insert(account_id);
+    }
+}
+
+#[async_trait]
+impl HandledNep171TokensStorage for TestStorage {
     async fn is_already_indexed(&self, account_id: &AccountId) -> bool {
         self.handled_accounts.read().await.contains(account_id)
     }
@@ -92,6 +113,7 @@ async fn detects_tkn_factory() {
     let mut indexer = NewTokenIndexer::new(
         handler,
         JsonRpcClient::connect(RPC_URL),
+        TestStorage::default(),
         TestStorage::default(),
     );
 
@@ -141,6 +163,7 @@ async fn detects_custom_token_contracts() {
         handler,
         JsonRpcClient::connect(RPC_URL),
         TestStorage::default(),
+        TestStorage::default(),
     );
 
     run_indexer(
@@ -189,6 +212,7 @@ async fn does_not_detect_non_ft_contrats() {
         handler,
         JsonRpcClient::connect(RPC_URL),
         TestStorage::default(),
+        TestStorage::default(),
     );
 
     run_indexer(
@@ -221,6 +245,7 @@ async fn detects_meme_cooking_meme_creation() {
     let mut indexer = NewTokenIndexer::new(
         handler,
         JsonRpcClient::connect(RPC_URL),
+        TestStorage::default(),
         TestStorage::default(),
     );
 
@@ -279,13 +304,14 @@ async fn detects_meme_cooking_meme_creation() {
 #[tokio::test]
 async fn detects_mitte_meme() {
     let handler = TestHandler {
-        testnet: true,
+        testnet: false,
         ..Default::default()
     };
 
     let mut indexer = NewTokenIndexer::new(
         handler,
         JsonRpcClient::connect(RPC_URL),
+        TestStorage::default(),
         TestStorage::default(),
     );
 
@@ -328,13 +354,14 @@ async fn detects_mitte_meme() {
 #[tokio::test]
 async fn detects_by_events() {
     let handler = TestHandler {
-        testnet: true,
+        testnet: false,
         ..Default::default()
     };
 
     let mut indexer = NewTokenIndexer::new(
         handler,
         JsonRpcClient::connect(RPC_URL),
+        TestStorage::default(),
         TestStorage::default(),
     );
 
@@ -385,6 +412,7 @@ async fn detects_meme_cooking_token() {
         handler,
         JsonRpcClient::connect(RPC_URL),
         TestStorage::default(),
+        TestStorage::default(),
     );
 
     run_indexer(
@@ -428,5 +456,55 @@ async fn detects_meme_cooking_token() {
                 block_timestamp_nanosec: 1726907853133808278
             }
         )]
+    );
+}
+
+#[tokio::test]
+async fn detects_nep171() {
+    let handler = TestHandler {
+        testnet: false,
+        ..Default::default()
+    };
+
+    let mut indexer = NewTokenIndexer::new(
+        handler,
+        JsonRpcClient::connect(RPC_URL),
+        TestStorage::default(),
+        TestStorage::default(),
+    );
+
+    run_indexer(
+        &mut indexer,
+        NeardataProvider::mainnet(),
+        IndexerOptions {
+            range: BlockIterator::iterator(132_278_273..=132_278_275),
+            preprocess_transactions: Some(PreprocessTransactionsSettings {
+                prefetch_blocks: 0,
+                postfetch_blocks: 0,
+            }),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        *indexer
+            .handler
+            .nep171_events
+            .lock()
+            .await
+            .get(&"nearvember-nft.near".parse::<AccountId>().unwrap())
+            .unwrap(),
+        vec![EventContext {
+            transaction_id: "6yUHqvocviZn4NC8dX4XSbTsnoVN8Av2PDZWjYpTWha6"
+                .parse()
+                .unwrap(),
+            receipt_id: "24FqRrjxTDLsnVQLsFZUdxZ1wScMmb6NBqCjZDHGRVNo"
+                .parse()
+                .unwrap(),
+            block_height: 132278273,
+            block_timestamp_nanosec: 1731127836703239828
+        }]
     );
 }

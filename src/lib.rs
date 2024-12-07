@@ -1,5 +1,6 @@
 pub mod meme_cooking;
 pub mod new_nep141;
+pub mod new_nep171;
 pub mod redis_handler;
 #[cfg(test)]
 mod tests;
@@ -19,14 +20,17 @@ use inindexer::TransactionReceipt;
 use meme_cooking::MemeCookingCreateMemeEvent;
 use meme_cooking::MemeCookingIndexer;
 use near_jsonrpc_client::JsonRpcClient;
-use new_nep141::HandledTokensStorage;
+use new_nep141::HandledNep141TokensStorage;
 use new_nep141::Nep141Indexer;
+use new_nep171::HandledNep171TokensStorage;
+use new_nep171::Nep171Indexer;
 
 use crate::meme_cooking::MemeCookingCreateTokenEvent;
 
 #[async_trait]
 pub trait ContractEventHandler: Send + Sync {
     async fn handle_new_nep141(&self, account_id: AccountId, context: EventContext);
+    async fn handle_new_nep171(&self, account_id: AccountId, context: EventContext);
     async fn handle_meme_cooking_new_meme(
         &self,
         event: MemeCookingCreateMemeEvent,
@@ -47,18 +51,21 @@ pub struct NewTokenIndexer<T: ContractEventHandler> {
     pub handler: Arc<T>,
     pub nep141_indexer: Nep141Indexer,
     pub meme_cooking_indexer: MemeCookingIndexer,
+    pub nep171_indexer: Nep171Indexer,
 }
 
 impl<T: ContractEventHandler> NewTokenIndexer<T> {
     pub fn new(
         handler: T,
         rpc_client: JsonRpcClient,
-        handled_accounts: impl HandledTokensStorage + 'static,
+        handled_nep141_accounts: impl HandledNep141TokensStorage + 'static,
+        handled_nep171_accounts: impl HandledNep171TokensStorage + 'static,
     ) -> Self {
         Self {
             handler: Arc::new(handler),
-            nep141_indexer: Nep141Indexer::new(rpc_client, handled_accounts),
+            nep141_indexer: Nep141Indexer::new(rpc_client.clone(), handled_nep141_accounts),
             meme_cooking_indexer: MemeCookingIndexer,
+            nep171_indexer: Nep171Indexer::new(rpc_client.clone(), handled_nep171_accounts),
         }
     }
 }
@@ -86,6 +93,10 @@ impl<T: ContractEventHandler + 'static> Indexer for NewTokenIndexer<T> {
 
         self.meme_cooking_indexer
             .detect_meme_cooking(receipt, tx, block, Arc::clone(&self.handler))
+            .await;
+
+        self.nep171_indexer
+            .detect_nep171(receipt, tx, block, Arc::clone(&self.handler))
             .await;
 
         Ok(())

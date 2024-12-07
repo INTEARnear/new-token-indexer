@@ -6,6 +6,7 @@ use inindexer::near_indexer_primitives::types::{AccountId, BlockHeight};
 use intear_events::events::newcontract::meme_cooking_token::NewMemeCookingTokenEvent;
 use intear_events::events::newcontract::{
     meme_cooking_meme::NewMemeCookingMemeEvent, nep141::NewContractNep141Event,
+    nep171::NewContractNep171Event,
 };
 use redis::aio::ConnectionManager;
 use tokio::sync::Mutex as TokioMutex;
@@ -15,6 +16,7 @@ use crate::{meme_cooking::MemeCookingCreateMemeEvent, ContractEventHandler, Even
 
 pub struct PushToRedisStream {
     nep141_stream: Arc<TokioMutex<RedisEventStream<NewContractNep141Event>>>,
+    nep171_stream: Arc<TokioMutex<RedisEventStream<NewContractNep171Event>>>,
     meme_cooking_meme_stream: Arc<TokioMutex<RedisEventStream<NewMemeCookingMemeEvent>>>,
     meme_cooking_token_stream: Arc<TokioMutex<RedisEventStream<NewMemeCookingTokenEvent>>>,
     max_stream_size: usize,
@@ -30,6 +32,14 @@ impl PushToRedisStream {
                     format!("{}_testnet", NewContractNep141Event::ID)
                 } else {
                     NewContractNep141Event::ID.to_string()
+                },
+            ))),
+            nep171_stream: Arc::new(TokioMutex::new(RedisEventStream::new(
+                connection.clone(),
+                if testnet {
+                    format!("{}_testnet", NewContractNep171Event::ID)
+                } else {
+                    NewContractNep171Event::ID.to_string()
                 },
             ))),
             meme_cooking_meme_stream: Arc::new(TokioMutex::new(RedisEventStream::new(
@@ -61,6 +71,19 @@ impl ContractEventHandler for PushToRedisStream {
             .lock()
             .await
             .add_event(NewContractNep141Event {
+                account_id,
+                transaction_id: context.transaction_id,
+                receipt_id: context.receipt_id,
+                block_height: context.block_height,
+                block_timestamp_nanosec: context.block_timestamp_nanosec,
+            });
+    }
+
+    async fn handle_new_nep171(&self, account_id: AccountId, context: EventContext) {
+        self.nep171_stream
+            .lock()
+            .await
+            .add_event(NewContractNep171Event {
                 account_id,
                 transaction_id: context.transaction_id,
                 receipt_id: context.receipt_id,

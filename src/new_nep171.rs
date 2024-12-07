@@ -18,16 +18,16 @@ use near_jsonrpc_client::{methods, JsonRpcClient};
 
 use crate::{ContractEventHandler, EventContext};
 
-pub struct Nep141Indexer {
-    storage: Arc<dyn HandledNep141TokensStorage>,
+pub struct Nep171Indexer {
+    storage: Arc<dyn HandledNep171TokensStorage>,
     rpc_client: JsonRpcClient,
     last_checked_event: HashMap<AccountId, Instant>,
 }
 
-impl Nep141Indexer {
+impl Nep171Indexer {
     pub fn new(
         rpc_client: JsonRpcClient,
-        storage: impl HandledNep141TokensStorage + 'static,
+        storage: impl HandledNep171TokensStorage + 'static,
     ) -> Self {
         Self {
             rpc_client,
@@ -36,7 +36,7 @@ impl Nep141Indexer {
         }
     }
 
-    pub async fn detect_nep141<T: ContractEventHandler + 'static>(
+    pub async fn detect_nep171<T: ContractEventHandler + 'static>(
         &mut self,
         receipt: &TransactionReceipt,
         tx: &IncompleteTransaction,
@@ -61,20 +61,20 @@ impl Nep141Indexer {
                             block_timestamp_nanosec: block.block.header.timestamp_nanosec as u128,
                         };
                         let token_id = receipt.receipt.receipt.receiver_id.clone();
-                        if is_nep141(&token_id, context.block_height, &rpc_client).await {
-                            log::info!("Found NEP141: {token_id}");
+                        if is_nep171(&token_id, context.block_height, &rpc_client).await {
+                            log::info!("Found NEP171: {token_id}");
                             storage.mark_handled(token_id.clone()).await;
-                            handler.handle_new_nep141(token_id.clone(), context).await;
+                            handler.handle_new_nep171(token_id.clone(), context).await;
                         } else {
                             tokio::spawn(async move {
                                 // Give RPC some time to catch up
                                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                                 if !storage.is_already_indexed(&token_id).await
-                                    && is_nep141(&token_id, context.block_height, &rpc_client).await
+                                    && is_nep171(&token_id, context.block_height, &rpc_client).await
                                 {
-                                    log::info!("Found NEP141 with delay: {token_id}");
+                                    log::info!("Found NEP171 with delay: {token_id}");
                                     storage.mark_handled(token_id.clone()).await;
-                                    handler.handle_new_nep141(token_id.clone(), context).await;
+                                    handler.handle_new_nep171(token_id.clone(), context).await;
                                 }
                             });
                         }
@@ -112,7 +112,7 @@ impl Nep141Indexer {
                     .storage
                     .is_already_indexed(&receipt.receipt.receipt.receiver_id)
                     .await
-                    && is_nep141(
+                    && is_nep171(
                         &receipt.receipt.receipt.receiver_id,
                         block.block.header.height,
                         &self.rpc_client,
@@ -129,7 +129,7 @@ impl Nep141Indexer {
                         block_timestamp_nanosec: block.block.header.timestamp_nanosec as u128,
                     };
                     handler
-                        .handle_new_nep141(receipt.receipt.receipt.receiver_id.clone(), context)
+                        .handle_new_nep171(receipt.receipt.receipt.receiver_id.clone(), context)
                         .await;
                 }
             }
@@ -137,7 +137,7 @@ impl Nep141Indexer {
     }
 }
 
-async fn is_nep141(
+async fn is_nep171(
     account_id: &AccountId,
     block_height: BlockHeight,
     rpc_client: &JsonRpcClient,
@@ -147,7 +147,7 @@ async fn is_nep141(
             block_reference: BlockReference::BlockId(BlockId::Height(block_height)),
             request: QueryRequest::CallFunction {
                 account_id: account_id.clone(),
-                method_name: "ft_metadata".to_string(),
+                method_name: "nft_metadata".to_string(),
                 args: serde_json::to_vec(&serde_json::json!({})).unwrap().into(),
             },
         })
@@ -156,7 +156,7 @@ async fn is_nep141(
 }
 
 #[async_trait]
-pub trait HandledNep141TokensStorage: Send + Sync {
+pub trait HandledNep171TokensStorage: Send + Sync {
     async fn is_already_indexed(&self, account_id: &AccountId) -> bool;
     async fn mark_handled(&self, account_id: AccountId);
 }
