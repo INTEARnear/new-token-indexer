@@ -2,7 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 use inindexer::{
-    near_indexer_primitives::types::AccountId, neardata_server::NeardataServerProvider,
+    near_indexer_primitives::types::{AccountId, BlockHeight},
+    neardata::NeardataProvider,
     run_indexer, BlockIterator, IndexerOptions, PreprocessTransactionsSettings,
 };
 use near_jsonrpc_client::JsonRpcClient;
@@ -64,6 +65,8 @@ impl ContractEventHandler for TestHandler {
     fn is_testnet(&self) -> bool {
         self.testnet
     }
+
+    async fn flush_events(&self, _block_height: BlockHeight) {}
 }
 
 #[derive(Default)]
@@ -94,7 +97,7 @@ async fn detects_tkn_factory() {
 
     run_indexer(
         &mut indexer,
-        NeardataServerProvider::mainnet(),
+        NeardataProvider::mainnet(),
         IndexerOptions {
             range: BlockIterator::iterator(114_625_047..=114_625_058),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
@@ -142,7 +145,7 @@ async fn detects_custom_token_contracts() {
 
     run_indexer(
         &mut indexer,
-        NeardataServerProvider::mainnet(),
+        NeardataProvider::mainnet(),
         IndexerOptions {
             range: BlockIterator::iterator(124_593_976..=124_593_979),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
@@ -190,7 +193,7 @@ async fn does_not_detect_non_ft_contrats() {
 
     run_indexer(
         &mut indexer,
-        NeardataServerProvider::mainnet(),
+        NeardataProvider::mainnet(),
         IndexerOptions {
             range: BlockIterator::iterator(116_538_111..=116_538_112),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
@@ -223,7 +226,7 @@ async fn detects_meme_cooking_meme_creation() {
 
     run_indexer(
         &mut indexer,
-        NeardataServerProvider::testnet(),
+        NeardataProvider::testnet(),
         IndexerOptions {
             range: BlockIterator::iterator(176_213_383..=176_213_387),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
@@ -288,7 +291,7 @@ async fn detects_mitte_meme() {
 
     run_indexer(
         &mut indexer,
-        NeardataServerProvider::mainnet(),
+        NeardataProvider::mainnet(),
         IndexerOptions {
             range: BlockIterator::iterator(124_682_797..=124_682_800),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
@@ -337,7 +340,7 @@ async fn detects_by_events() {
 
     run_indexer(
         &mut indexer,
-        NeardataServerProvider::mainnet(),
+        NeardataProvider::mainnet(),
         IndexerOptions {
             range: BlockIterator::iterator(124_689_355..=124_689_357),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
@@ -386,7 +389,7 @@ async fn detects_meme_cooking_token() {
 
     run_indexer(
         &mut indexer,
-        NeardataServerProvider::testnet(),
+        NeardataProvider::testnet(),
         IndexerOptions {
             range: BlockIterator::iterator(174_820_322..=174_820_337),
             preprocess_transactions: Some(PreprocessTransactionsSettings {

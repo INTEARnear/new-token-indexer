@@ -38,6 +38,9 @@ pub trait ContractEventHandler: Send + Sync {
         context: EventContext,
     );
     fn is_testnet(&self) -> bool;
+
+    /// Called after each block
+    async fn flush_events(&self, block_height: BlockHeight);
 }
 
 pub struct NewTokenIndexer<T: ContractEventHandler> {
@@ -85,6 +88,11 @@ impl<T: ContractEventHandler + 'static> Indexer for NewTokenIndexer<T> {
             .detect_meme_cooking(receipt, tx, block, Arc::clone(&self.handler))
             .await;
 
+        Ok(())
+    }
+
+    async fn process_block_end(&mut self, block: &StreamerMessage) -> Result<(), Self::Error> {
+        self.handler.flush_events(block.block.header.height).await;
         Ok(())
     }
 }
