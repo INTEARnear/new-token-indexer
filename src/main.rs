@@ -20,7 +20,6 @@ async fn main() {
         .init()
         .unwrap();
 
-    let is_testnet = std::env::var("TESTNET").is_ok();
     let client = redis::Client::open(
         std::env::var("REDIS_URL").expect("No $REDIS_URL environment variable set"),
     )
@@ -28,7 +27,7 @@ async fn main() {
     let connection = ConnectionManager::new(client).await.unwrap();
 
     let mut indexer = NewTokenIndexer::new(
-        PushToRedisStream::new(connection, 1_000, is_testnet).await,
+        PushToRedisStream::new(connection, 1_000).await,
         JsonRpcClient::connect(std::env::var("RPC_URL").unwrap_or(RPC_URL.to_string())),
         TxtFileStorage::new("known_tokens.txt").await,
         TxtFileStorage::new("known_nft_tokens.txt").await,
@@ -36,11 +35,7 @@ async fn main() {
 
     run_indexer(
         &mut indexer,
-        if is_testnet {
-            NeardataProvider::testnet()
-        } else {
-            NeardataProvider::mainnet()
-        },
+        NeardataProvider::mainnet(),
         IndexerOptions {
             range: if std::env::args().len() > 1 {
                 let msg =
