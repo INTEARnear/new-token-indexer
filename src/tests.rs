@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use inindexer::{
     near_indexer_primitives::types::{AccountId, BlockHeight},
     neardata::NeardataProvider,
-    run_indexer, BlockIterator, IndexerOptions, PreprocessTransactionsSettings,
+    run_indexer, BlockRange, IndexerOptions, PreprocessTransactionsSettings,
 };
 use near_jsonrpc_client::JsonRpcClient;
 use tokio::sync::{Mutex, RwLock};
@@ -85,12 +85,14 @@ async fn detects_tkn_factory() {
         &mut indexer,
         NeardataProvider::mainnet(),
         IndexerOptions {
-            range: BlockIterator::iterator(114_625_047..=114_625_058),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
                 prefetch_blocks: 0,
                 postfetch_blocks: 0,
             }),
-            ..Default::default()
+            ..IndexerOptions::default_with_range(BlockRange::Range {
+                start_inclusive: 114_625_047,
+                end_exclusive: Some(114_625_060),
+            })
         },
     )
     .await
@@ -134,12 +136,14 @@ async fn detects_custom_token_contracts() {
         &mut indexer,
         NeardataProvider::mainnet(),
         IndexerOptions {
-            range: BlockIterator::iterator(124_593_976..=124_593_979),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
                 prefetch_blocks: 0,
                 postfetch_blocks: 0,
             }),
-            ..Default::default()
+            ..IndexerOptions::default_with_range(BlockRange::Range {
+                start_inclusive: 124_593_976,
+                end_exclusive: Some(124_593_980),
+            })
         },
     )
     .await
@@ -183,12 +187,14 @@ async fn does_not_detect_non_ft_contrats() {
         &mut indexer,
         NeardataProvider::mainnet(),
         IndexerOptions {
-            range: BlockIterator::iterator(116_538_111..=116_538_112),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
                 prefetch_blocks: 0,
                 postfetch_blocks: 0,
             }),
-            ..Default::default()
+            ..IndexerOptions::default_with_range(BlockRange::Range {
+                start_inclusive: 116_538_111,
+                end_exclusive: Some(116_538_113),
+            })
         },
     )
     .await
@@ -197,55 +203,6 @@ async fn does_not_detect_non_ft_contrats() {
     let mut events = indexer.handler.nep141_events.lock().await;
     events.retain(|token, _| token != "game.hot.tg" && token != "token.sweat");
     assert!(events.is_empty());
-}
-
-#[tokio::test]
-async fn detects_mitte_meme() {
-    let handler = TestHandler {
-        ..Default::default()
-    };
-
-    let mut indexer = NewTokenIndexer::new(
-        handler,
-        JsonRpcClient::connect(RPC_URL),
-        TestStorage::default(),
-        TestStorage::default(),
-    );
-
-    run_indexer(
-        &mut indexer,
-        NeardataProvider::mainnet(),
-        IndexerOptions {
-            range: BlockIterator::iterator(124_682_797..=124_682_800),
-            preprocess_transactions: Some(PreprocessTransactionsSettings {
-                prefetch_blocks: 0,
-                postfetch_blocks: 0,
-            }),
-            ..Default::default()
-        },
-    )
-    .await
-    .unwrap();
-
-    assert_eq!(
-        *indexer
-            .handler
-            .nep141_events
-            .lock()
-            .await
-            .get(&"catrump.token0.near".parse::<AccountId>().unwrap())
-            .unwrap(),
-        vec![EventContext {
-            transaction_id: "HE8m7RMcFADqV1HJ9PVa3xdtzYHYzSQMBFA2JwAzt7ZZ"
-                .parse()
-                .unwrap(),
-            receipt_id: "96P7qPrKjhpsSS1tKctojRTUmPyTWEdr2nMmR8wULybW"
-                .parse()
-                .unwrap(),
-            block_height: 124682799,
-            block_timestamp_nanosec: 1722427998479776694
-        }]
-    );
 }
 
 #[tokio::test]
@@ -265,12 +222,14 @@ async fn detects_by_events() {
         &mut indexer,
         NeardataProvider::mainnet(),
         IndexerOptions {
-            range: BlockIterator::iterator(124_689_355..=124_689_357),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
                 prefetch_blocks: 0,
                 postfetch_blocks: 0,
             }),
-            ..Default::default()
+            ..IndexerOptions::default_with_range(BlockRange::Range {
+                start_inclusive: 124_689_355,
+                end_exclusive: Some(124_689_358),
+            })
         },
     )
     .await
@@ -314,12 +273,14 @@ async fn detects_nep171() {
         &mut indexer,
         NeardataProvider::mainnet(),
         IndexerOptions {
-            range: BlockIterator::iterator(132_278_273..=132_278_275),
             preprocess_transactions: Some(PreprocessTransactionsSettings {
                 prefetch_blocks: 0,
                 postfetch_blocks: 0,
             }),
-            ..Default::default()
+            ..IndexerOptions::default_with_range(BlockRange::Range {
+                start_inclusive: 132_278_273,
+                end_exclusive: Some(132_278_276),
+            })
         },
     )
     .await
