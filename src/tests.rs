@@ -6,7 +6,7 @@ use inindexer::{
     neardata::NeardataProvider,
     run_indexer, BlockRange, IndexerOptions, PreprocessTransactionsSettings,
 };
-use near_jsonrpc_client::JsonRpcClient;
+use near_min_api::RpcClient;
 use tokio::sync::{Mutex, RwLock};
 
 pub const RPC_URL: &str = "https://archival-rpc.mainnet.near.org";
@@ -76,7 +76,7 @@ async fn detects_tkn_factory() {
 
     let mut indexer = NewTokenIndexer::new(
         handler,
-        JsonRpcClient::connect(RPC_URL),
+        RpcClient::new([RPC_URL]),
         TestStorage::default(),
         TestStorage::default(),
     );
@@ -127,7 +127,7 @@ async fn detects_custom_token_contracts() {
 
     let mut indexer = NewTokenIndexer::new(
         handler,
-        JsonRpcClient::connect(RPC_URL),
+        RpcClient::new([RPC_URL]),
         TestStorage::default(),
         TestStorage::default(),
     );
@@ -178,7 +178,7 @@ async fn does_not_detect_non_ft_contrats() {
 
     let mut indexer = NewTokenIndexer::new(
         handler,
-        JsonRpcClient::connect(RPC_URL),
+        RpcClient::new([RPC_URL]),
         TestStorage::default(),
         TestStorage::default(),
     );
@@ -213,7 +213,7 @@ async fn detects_by_events() {
 
     let mut indexer = NewTokenIndexer::new(
         handler,
-        JsonRpcClient::connect(RPC_URL),
+        RpcClient::new([RPC_URL]),
         TestStorage::default(),
         TestStorage::default(),
     );
@@ -264,7 +264,7 @@ async fn detects_nep171() {
 
     let mut indexer = NewTokenIndexer::new(
         handler,
-        JsonRpcClient::connect(RPC_URL),
+        RpcClient::new([RPC_URL]),
         TestStorage::default(),
         TestStorage::default(),
     );

@@ -5,30 +5,28 @@ use std::{
 };
 
 use async_trait::async_trait;
+use cached::proc_macro::cached;
 use inindexer::{
     near_indexer_primitives::{
-        types::{AccountId, BlockHeight, BlockId, BlockReference},
-        views::{ActionView, QueryRequest, ReceiptEnumView},
+        types::{AccountId, BlockHeight},
+        views::{ActionView, ReceiptEnumView},
         StreamerMessage,
     },
     near_utils::{EventLogData, FtBurnLog, FtMintLog, FtTransferLog},
     IncompleteTransaction, TransactionReceipt,
 };
-use near_jsonrpc_client::{methods, JsonRpcClient};
+use near_min_api::{types::BlockId, QueryFinality, RpcClient};
 
 use crate::{ContractEventHandler, EventContext};
 
 pub struct Nep141Indexer {
     storage: Arc<dyn HandledNep141TokensStorage>,
-    rpc_client: JsonRpcClient,
+    rpc_client: RpcClient,
     last_checked_event: HashMap<AccountId, Instant>,
 }
 
 impl Nep141Indexer {
-    pub fn new(
-        rpc_client: JsonRpcClient,
-        storage: impl HandledNep141TokensStorage + 'static,
-    ) -> Self {
+    pub fn new(rpc_client: RpcClient, storage: impl HandledNep141TokensStorage + 'static) -> Self {
         Self {
             rpc_client,
             storage: Arc::new(storage),
@@ -137,20 +135,19 @@ impl Nep141Indexer {
     }
 }
 
+#[cached(time = 300, key = "AccountId", convert = r#"{ account_id.clone() }"#)]
 async fn is_nep141(
     account_id: &AccountId,
     block_height: BlockHeight,
-    rpc_client: &JsonRpcClient,
+    rpc_client: &RpcClient,
 ) -> bool {
     let metadata = rpc_client
-        .call(methods::query::RpcQueryRequest {
-            block_reference: BlockReference::BlockId(BlockId::Height(block_height)),
-            request: QueryRequest::CallFunction {
-                account_id: account_id.clone(),
-                method_name: "ft_metadata".to_string(),
-                args: serde_json::to_vec(&serde_json::json!({})).unwrap().into(),
-            },
-        })
+        .call::<serde_json::Value>(
+            account_id.clone(),
+            "ft_metadata",
+            serde_json::json!({}),
+            QueryFinality::BlockId(BlockId::Height(block_height)),
+        )
         .await;
     metadata.is_ok()
 }

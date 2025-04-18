@@ -3,7 +3,7 @@ use inindexer::neardata::NeardataProvider;
 use inindexer::{
     run_indexer, AutoContinue, BlockRange, IndexerOptions, PreprocessTransactionsSettings,
 };
-use near_jsonrpc_client::JsonRpcClient;
+use near_min_api::RpcClient;
 use new_token_indexer::{
     redis_handler::PushToRedisStream, txt_file_storage::TxtFileStorage, NewTokenIndexer,
 };
@@ -28,7 +28,7 @@ async fn main() {
 
     let mut indexer = NewTokenIndexer::new(
         PushToRedisStream::new(connection, 1_000).await,
-        JsonRpcClient::connect(std::env::var("RPC_URL").unwrap_or(RPC_URL.to_string())),
+        RpcClient::new([std::env::var("RPC_URL").unwrap_or(RPC_URL.to_string())]),
         TxtFileStorage::new("known_tokens.txt").await,
         TxtFileStorage::new("known_nft_tokens.txt").await,
     );

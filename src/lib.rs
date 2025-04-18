@@ -16,7 +16,7 @@ use inindexer::near_indexer_primitives::StreamerMessage;
 use inindexer::IncompleteTransaction;
 use inindexer::Indexer;
 use inindexer::TransactionReceipt;
-use near_jsonrpc_client::JsonRpcClient;
+use near_min_api::RpcClient;
 use new_nep141::HandledNep141TokensStorage;
 use new_nep141::Nep141Indexer;
 use new_nep171::HandledNep171TokensStorage;
@@ -40,7 +40,7 @@ pub struct NewTokenIndexer<T: ContractEventHandler> {
 impl<T: ContractEventHandler> NewTokenIndexer<T> {
     pub fn new(
         handler: T,
-        rpc_client: JsonRpcClient,
+        rpc_client: RpcClient,
         handled_nep141_accounts: impl HandledNep141TokensStorage + 'static,
         handled_nep171_accounts: impl HandledNep171TokensStorage + 'static,
     ) -> Self {

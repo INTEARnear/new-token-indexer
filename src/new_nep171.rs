@@ -5,30 +5,28 @@ use std::{
 };
 
 use async_trait::async_trait;
+use cached::proc_macro::cached;
 use inindexer::{
     near_indexer_primitives::{
-        types::{AccountId, BlockHeight, BlockId, BlockReference},
-        views::{ActionView, QueryRequest, ReceiptEnumView},
+        types::{AccountId, BlockHeight},
+        views::{ActionView, ReceiptEnumView},
         StreamerMessage,
     },
-    near_utils::{EventLogData, FtBurnLog, FtMintLog, FtTransferLog},
+    near_utils::{EventLogData, NftBurnLog, NftMintLog, NftTransferLog},
     IncompleteTransaction, TransactionReceipt,
 };
-use near_jsonrpc_client::{methods, JsonRpcClient};
+use near_min_api::{types::BlockId, QueryFinality, RpcClient};
 
 use crate::{ContractEventHandler, EventContext};
 
 pub struct Nep171Indexer {
     storage: Arc<dyn HandledNep171TokensStorage>,
-    rpc_client: JsonRpcClient,
+    rpc_client: RpcClient,
     last_checked_event: HashMap<AccountId, Instant>,
 }
 
 impl Nep171Indexer {
-    pub fn new(
-        rpc_client: JsonRpcClient,
-        storage: impl HandledNep171TokensStorage + 'static,
-    ) -> Self {
+    pub fn new(rpc_client: RpcClient, storage: impl HandledNep171TokensStorage + 'static) -> Self {
         Self {
             rpc_client,
             storage: Arc::new(storage),
@@ -95,15 +93,9 @@ impl Nep171Indexer {
         }
 
         for log in receipt.receipt.execution_outcome.outcome.logs.iter() {
-            if EventLogData::<FtTransferLog>::deserialize(log).is_ok()
-                || EventLogData::<FtBurnLog>::deserialize(log).is_ok()
-                || EventLogData::<FtMintLog>::deserialize(log).is_ok()
-                || receipt
-                    .receipt
-                    .receipt
-                    .receiver_id
-                    .as_str()
-                    .ends_with(".tkn.near")
+            if EventLogData::<NftTransferLog>::deserialize(log).is_ok()
+                || EventLogData::<NftBurnLog>::deserialize(log).is_ok()
+                || EventLogData::<NftMintLog>::deserialize(log).is_ok()
             {
                 self.last_checked_event
                     .insert(receipt.receipt.receipt.receiver_id.clone(), Instant::now());
@@ -137,20 +129,19 @@ impl Nep171Indexer {
     }
 }
 
+#[cached(time = 300, key = "AccountId", convert = r#"{ account_id.clone() }"#)]
 async fn is_nep171(
     account_id: &AccountId,
     block_height: BlockHeight,
-    rpc_client: &JsonRpcClient,
+    rpc_client: &RpcClient,
 ) -> bool {
     let metadata = rpc_client
-        .call(methods::query::RpcQueryRequest {
-            block_reference: BlockReference::BlockId(BlockId::Height(block_height)),
-            request: QueryRequest::CallFunction {
-                account_id: account_id.clone(),
-                method_name: "nft_metadata".to_string(),
-                args: serde_json::to_vec(&serde_json::json!({})).unwrap().into(),
-            },
-        })
+        .call::<serde_json::Value>(
+            account_id.clone(),
+            "nft_metadata",
+            serde_json::json!({}),
+            QueryFinality::BlockId(BlockId::Height(block_height)),
+        )
         .await;
     metadata.is_ok()
 }
