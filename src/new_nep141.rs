@@ -8,14 +8,14 @@ use async_trait::async_trait;
 use cached::proc_macro::cached;
 use inindexer::{
     near_indexer_primitives::{
-        types::{AccountId, BlockHeight},
+        types::AccountId,
         views::{ActionView, ReceiptEnumView},
         StreamerMessage,
     },
     near_utils::{EventLogData, FtBurnLog, FtMintLog, FtTransferLog},
     IncompleteTransaction, TransactionReceipt,
 };
-use near_min_api::{types::BlockId, QueryFinality, RpcClient};
+use near_min_api::{types::Finality, QueryFinality, RpcClient};
 
 use crate::{ContractEventHandler, EventContext};
 
@@ -59,7 +59,7 @@ impl Nep141Indexer {
                             block_timestamp_nanosec: block.block.header.timestamp_nanosec as u128,
                         };
                         let token_id = receipt.receipt.receipt.receiver_id.clone();
-                        if is_nep141(&token_id, context.block_height, &rpc_client).await {
+                        if is_nep141(&token_id, &rpc_client).await {
                             log::info!("Found NEP141: {token_id}");
                             storage.mark_handled(token_id.clone()).await;
                             handler.handle_new_nep141(token_id.clone(), context).await;
@@ -68,7 +68,7 @@ impl Nep141Indexer {
                                 // Give RPC some time to catch up
                                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                                 if !storage.is_already_indexed(&token_id).await
-                                    && is_nep141(&token_id, context.block_height, &rpc_client).await
+                                    && is_nep141(&token_id, &rpc_client).await
                                 {
                                     log::info!("Found NEP141 with delay: {token_id}");
                                     storage.mark_handled(token_id.clone()).await;
@@ -102,6 +102,7 @@ impl Nep141Indexer {
                     .receiver_id
                     .as_str()
                     .ends_with(".tkn.near")
+                || receipt.receipt.receipt.receiver_id == "wrap.near"
             {
                 self.last_checked_event
                     .insert(receipt.receipt.receipt.receiver_id.clone(), Instant::now());
@@ -110,12 +111,7 @@ impl Nep141Indexer {
                     .storage
                     .is_already_indexed(&receipt.receipt.receipt.receiver_id)
                     .await
-                    && is_nep141(
-                        &receipt.receipt.receipt.receiver_id,
-                        block.block.header.height,
-                        &self.rpc_client,
-                    )
-                    .await
+                    && is_nep141(&receipt.receipt.receipt.receiver_id, &self.rpc_client).await
                 {
                     self.storage
                         .mark_handled(receipt.receipt.receipt.receiver_id.clone())
@@ -136,17 +132,13 @@ impl Nep141Indexer {
 }
 
 #[cached(time = 300, key = "AccountId", convert = r#"{ account_id.clone() }"#)]
-async fn is_nep141(
-    account_id: &AccountId,
-    block_height: BlockHeight,
-    rpc_client: &RpcClient,
-) -> bool {
+async fn is_nep141(account_id: &AccountId, rpc_client: &RpcClient) -> bool {
     let metadata = rpc_client
         .call::<serde_json::Value>(
             account_id.clone(),
             "ft_metadata",
             serde_json::json!({}),
-            QueryFinality::BlockId(BlockId::Height(block_height)),
+            QueryFinality::Finality(Finality::None),
         )
         .await;
     metadata.is_ok()
