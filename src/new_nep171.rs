@@ -43,7 +43,11 @@ impl Nep171Indexer {
     ) {
         if let ReceiptEnumView::Action { actions, .. } = &receipt.receipt.receipt.receipt {
             for action in actions.iter() {
-                if let ActionView::DeployContract { .. } = action {
+                if let ActionView::DeployContract { .. }
+                | ActionView::UseGlobalContract { .. }
+                | ActionView::UseGlobalContractByAccountId { .. }
+                | ActionView::DeterministicStateInit { .. } = action
+                {
                     if !self
                         .storage
                         .is_already_indexed(&receipt.receipt.receipt.receiver_id)

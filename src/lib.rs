@@ -13,10 +13,12 @@ use inindexer::near_indexer_primitives::types::BlockHeight;
 use inindexer::near_indexer_primitives::views::ExecutionStatusView;
 use inindexer::near_indexer_primitives::CryptoHash;
 use inindexer::near_indexer_primitives::StreamerMessage;
+use inindexer::near_utils::FtBalance;
 use inindexer::IncompleteTransaction;
 use inindexer::Indexer;
 use inindexer::TransactionReceipt;
 use near_min_api::RpcClient;
+use new_nep141::FtMetadata;
 use new_nep141::HandledNep141TokensStorage;
 use new_nep141::Nep141Indexer;
 use new_nep171::HandledNep171TokensStorage;
@@ -24,7 +26,13 @@ use new_nep171::Nep171Indexer;
 
 #[async_trait]
 pub trait ContractEventHandler: Send + Sync {
-    async fn handle_new_nep141(&self, account_id: AccountId, context: EventContext);
+    async fn handle_new_nep141(
+        &self,
+        account_id: AccountId,
+        metadata: FtMetadata,
+        total_supply: FtBalance,
+        context: EventContext,
+    );
     async fn handle_new_nep171(&self, account_id: AccountId, context: EventContext);
 
     /// Called after each block

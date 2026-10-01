@@ -3,12 +3,14 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use inevents_redis::RedisEventStream;
 use inindexer::near_indexer_primitives::types::{AccountId, BlockHeight};
+use inindexer::near_utils::FtBalance;
 use intear_events::events::newcontract::{
     nep141::NewContractNep141Event, nep171::NewContractNep171Event,
 };
 use redis::aio::ConnectionManager;
 use tokio::sync::Mutex as TokioMutex;
 
+use crate::new_nep141::FtMetadata;
 use crate::{ContractEventHandler, EventContext};
 
 pub struct PushToRedisStream {
@@ -35,7 +37,13 @@ impl PushToRedisStream {
 
 #[async_trait]
 impl ContractEventHandler for PushToRedisStream {
-    async fn handle_new_nep141(&self, account_id: AccountId, context: EventContext) {
+    async fn handle_new_nep141(
+        &self,
+        account_id: AccountId,
+        _metadata: FtMetadata,
+        _total_supply: FtBalance,
+        context: EventContext,
+    ) {
         self.nep141_stream
             .lock()
             .await

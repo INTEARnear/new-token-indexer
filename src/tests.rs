@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 use inindexer::{
     near_indexer_primitives::types::{AccountId, BlockHeight},
+    near_utils::FtBalance,
     neardata::NeardataProvider,
     run_indexer, BlockRange, IndexerOptions, PreprocessTransactionsSettings,
 };
@@ -11,6 +12,7 @@ use tokio::sync::{Mutex, RwLock};
 
 pub const RPC_URL: &str = "https://archival-rpc.mainnet.near.org";
 
+use crate::new_nep141::FtMetadata;
 use crate::new_nep171::HandledNep171TokensStorage;
 use crate::{ContractEventHandler, EventContext, HandledNep141TokensStorage, NewTokenIndexer};
 
@@ -22,7 +24,13 @@ struct TestHandler {
 
 #[async_trait]
 impl ContractEventHandler for TestHandler {
-    async fn handle_new_nep141(&self, account_id: AccountId, context: EventContext) {
+    async fn handle_new_nep141(
+        &self,
+        account_id: AccountId,
+        _metadata: FtMetadata,
+        _total_supply: FtBalance,
+        context: EventContext,
+    ) {
         self.nep141_events
             .lock()
             .await

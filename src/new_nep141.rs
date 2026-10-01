@@ -12,12 +12,27 @@ use inindexer::{
         views::{ActionView, ReceiptEnumView},
         StreamerMessage,
     },
-    near_utils::{EventLogData, FtBurnLog, FtMintLog, FtTransferLog},
+    near_utils::{EventLogData, FtBalance, FtBurnLog, FtMintLog, FtTransferLog},
     IncompleteTransaction, TransactionReceipt,
 };
-use near_min_api::{types::Finality, QueryFinality, RpcClient};
+use near_min_api::{
+    types::{Finality, U128},
+    QueryFinality, RpcClient,
+};
+use serde::{Deserialize, Serialize};
 
 use crate::{ContractEventHandler, EventContext};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FtMetadata {
+    pub spec: String,
+    pub name: String,
+    pub symbol: String,
+    pub icon: Option<String>,
+    pub reference: Option<String>,
+    pub reference_hash: Option<String>,
+    pub decimals: u8,
+}
 
 pub struct Nep141Indexer {
     storage: Arc<dyn HandledNep141TokensStorage>,
@@ -43,7 +58,11 @@ impl Nep141Indexer {
     ) {
         if let ReceiptEnumView::Action { actions, .. } = &receipt.receipt.receipt.receipt {
             for action in actions.iter() {
-                if let ActionView::DeployContract { .. } = action {
+                if let ActionView::DeployContract { .. }
+                | ActionView::UseGlobalContract { .. }
+                | ActionView::UseGlobalContractByAccountId { .. }
+                | ActionView::DeterministicStateInit { .. } = action
+                {
                     if !self
                         .storage
                         .is_already_indexed(&receipt.receipt.receipt.receiver_id)
@@ -59,20 +78,39 @@ impl Nep141Indexer {
                             block_timestamp_nanosec: block.block.header.timestamp_nanosec as u128,
                         };
                         let token_id = receipt.receipt.receipt.receiver_id.clone();
-                        if is_nep141(&token_id, &rpc_client).await {
+                        if let Some((metadata, total_supply)) =
+                            fetch_nep141(&token_id, &rpc_client).await
+                        {
                             log::info!("Found NEP141: {token_id}");
                             storage.mark_handled(token_id.clone()).await;
-                            handler.handle_new_nep141(token_id.clone(), context).await;
+                            handler
+                                .handle_new_nep141(
+                                    token_id.clone(),
+                                    metadata,
+                                    total_supply,
+                                    context,
+                                )
+                                .await;
                         } else {
                             tokio::spawn(async move {
                                 // Give RPC some time to catch up
                                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-                                if !storage.is_already_indexed(&token_id).await
-                                    && is_nep141(&token_id, &rpc_client).await
+                                if storage.is_already_indexed(&token_id).await {
+                                    return;
+                                }
+                                if let Some((metadata, total_supply)) =
+                                    fetch_nep141(&token_id, &rpc_client).await
                                 {
                                     log::info!("Found NEP141 with delay: {token_id}");
                                     storage.mark_handled(token_id.clone()).await;
-                                    handler.handle_new_nep141(token_id.clone(), context).await;
+                                    handler
+                                        .handle_new_nep141(
+                                            token_id.clone(),
+                                            metadata,
+                                            total_supply,
+                                            context,
+                                        )
+                                        .await;
                                 }
                             });
                         }
@@ -107,11 +145,15 @@ impl Nep141Indexer {
                 self.last_checked_event
                     .insert(receipt.receipt.receipt.receiver_id.clone(), Instant::now());
 
-                if !self
+                if self
                     .storage
                     .is_already_indexed(&receipt.receipt.receipt.receiver_id)
                     .await
-                    && is_nep141(&receipt.receipt.receipt.receiver_id, &self.rpc_client).await
+                {
+                    continue;
+                }
+                if let Some((metadata, total_supply)) =
+                    fetch_nep141(&receipt.receipt.receipt.receiver_id, &self.rpc_client).await
                 {
                     self.storage
                         .mark_handled(receipt.receipt.receipt.receiver_id.clone())
@@ -123,7 +165,12 @@ impl Nep141Indexer {
                         block_timestamp_nanosec: block.block.header.timestamp_nanosec as u128,
                     };
                     handler
-                        .handle_new_nep141(receipt.receipt.receipt.receiver_id.clone(), context)
+                        .handle_new_nep141(
+                            receipt.receipt.receipt.receiver_id.clone(),
+                            metadata,
+                            total_supply,
+                            context,
+                        )
                         .await;
                 }
             }
@@ -132,16 +179,29 @@ impl Nep141Indexer {
 }
 
 #[cached(time = 300, key = "AccountId", convert = r#"{ account_id.clone() }"#)]
-async fn is_nep141(account_id: &AccountId, rpc_client: &RpcClient) -> bool {
+async fn fetch_nep141(
+    account_id: &AccountId,
+    rpc_client: &RpcClient,
+) -> Option<(FtMetadata, FtBalance)> {
     let metadata = rpc_client
-        .call::<serde_json::Value>(
+        .call::<FtMetadata>(
             account_id.clone(),
             "ft_metadata",
             serde_json::json!({}),
             QueryFinality::Finality(Finality::None),
         )
-        .await;
-    metadata.is_ok()
+        .await
+        .ok()?;
+    let total_supply = rpc_client
+        .call::<U128>(
+            account_id.clone(),
+            "ft_total_supply",
+            serde_json::json!({}),
+            QueryFinality::Finality(Finality::None),
+        )
+        .await
+        .ok()?;
+    Some((metadata, total_supply.0))
 }
 
 #[async_trait]
